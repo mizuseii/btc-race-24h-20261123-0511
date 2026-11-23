@@ -82,7 +82,14 @@ function onBatch(state: BarsState, _batch: Batch) {
   const holding = pos !== undefined && pos.qty > 0n;
   if (holding) {
     heldBars += 1;
-    const exitMomentum = retBps(close, closes[k - EXIT_LOOKBACK_BARS]!);
+    // The 60-bar exit momentum is only defined once 60 closes exist; before
+    // that, only the time cap can exit (a buy decided at bar 45 fills at 46,
+    // so the earliest holding bar is 46 and closes[k - 60] would be undefined).
+    // Comparing against undefined would give NaN and silently never exit.
+    const exitMomentum =
+      k >= EXIT_LOOKBACK_BARS
+        ? retBps(close, closes[k - EXIT_LOOKBACK_BARS]!)
+        : Number.POSITIVE_INFINITY;
     if (exitMomentum < EXIT_BPS || heldBars >= MAX_HOLD_BARS) {
       heldBars = 0;
       return [
